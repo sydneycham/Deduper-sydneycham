@@ -1,0 +1,79 @@
+The Problem:
+PCR sometimes leads to unwanted duplication of sequences in sequencing data. We would like a more accurate representation of the sequences in our data since this woudl lead to rna-seq data wrongly attributing elevated expression in our final result. Our goal is to account for these duplicates to produce a more accurate analysis. 
+
+Psuedocode:
+Set up argparse 
+
+def pos_changer(line):
+'''
+calculates correct starting position based on reference and assigns this position to matched reads
+'''
+    grab CIGAR string col 6
+    parse through CIGAR string
+    look through CIGAR for I, S, H, P, if has one of those then:
+        calculate new starting position
+    return new starting position into CIGAR
+
+init UMI_dict
+
+init duplicate_counter
+
+def dup_detection(line):
+'''
+this function will parse through the sam file and determine whether the reads are duplicates or not and adding duplicates to output file
+'''
+    grab chromosome col 3
+    grab starting position col 4
+    grab CIGAR string col 6
+    grab bitflag to determine strandedness
+
+    check for duplicates by:
+    check if umi in UMI_dict
+        if in UMI_dict:
+            store chromosome, starting position, CIGAR string, strandedness with that UMI
+        if not in UMI_dict:
+            add to UMI_dict as well as chromosome, starting position, CIGAR string, strandedness
+            add to duplicate_counter, and send them to pos_changer function
+    once position is corrected, output this new sam file line to output file for duplicates 
+    return line
+
+    
+
+Open sam file 
+    if line does not start with @ (so we're only grabbing the part of the sam file with the read):
+        dup_detection(line)
+
+Sample Input file:
+@SQ     SN:GL456359.1   LN:22974
+@SQ     SN:GL456396.1   LN:21240
+@SQ     SN:GL456368.1   LN:20208
+@SQ     SN:MU069434.1   LN:8412
+@SQ     SN:JH584295.1   LN:1976
+@PG     ID:STAR PN:STAR VN:2.7.9a       CL:STAR   --runMode alignReads      --runThreadN 40   --genomeDir ../QAA/Mus_musculus.GRCm39_ens104_STAR2.7.9a   --readFilesIn C1_paired_end_R1.fastq.gz   C1_paired_end_R2.fastq.gz      --readFilesCommand zcat      --outFileNamePrefix C1_PE_   --outSAMunmapped Within   KeepPairs      --outFilterMultimapNmax 1   --alignIntronMax 1000000   --alignMatesGapMax 1000000
+@CO     user command line: STAR --runMode alignReads --runThreadN 40 --genomeDir ../QAA/Mus_musculus.GRCm39_ens104_STAR2.7.9a --outFilterMultimapNmax 1 --outSAMunmapped Within KeepPairs --alignIntronMax 1000000 --alignMatesGapMax 1000000 --readFilesCommand zcat --readFilesIn C1_paired_end_R1.fastq.gz C1_paired_end_R2.fastq.gz --outFileNamePrefix C1_PE_
+NS500451:154:HWKTMBGXX:1:11101:18318:1085:AGCTACCA:GGCGTATT     163     MT      6161    255     1S71M   =       6516   426      AGTCTATTGGCTTTCTAGGCTTTATTGTATGAGCCCACCACATATTCACAGTAGGATTAGATGTAGACACAC        /EEEEEEEEEEEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEEEEEEEEEEEEEEEEAEEEEEEEEEEEEA        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+NS500451:154:HWKTMBGXX:1:11101:18318:1085:AGCTACCA:GGCGTATT     83      MT      6516    255     71M1S   =       6161   -426     TTCCCATTATTTTCAGGCTTCACCCTAGATGACACATGAGCAAAAGCCCACTTCGCCATCATATTCGTAGGT        AEEEEEEAEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEA6/        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+NS500451:154:HWKTMBGXX:1:11101:21515:1086:GAAGTGCA:ACACAGAG     99      12      21390945        255     1S71M   =      21391064 176     ATGGGGCTCACACCTGACCGGGCAGGTAGAAGCACAGTGCTCATGCGGTGGTGGGCAGCACTCAGGCACCAT        E66EEEEEEAEEEEEE/EEEEEEEEEEEE<EEEAEAEEEEEEEEEEEEEEEEEEEE/EEE/<E/EEE/6A//        NH:i:1  HI:i:1  AS:i:106        nM:i:10
+NS500451:154:HWKTMBGXX:1:11101:21515:1086:GAAGTGCA:ACACAGAG     147     12      21391064        255     14S57M1S       21390945 -176    TGATACCGCTTCATGAGTTTAGTAGACAGATTTGTATAAAGACTGCAGCCCCATGCTACAGTATGTCAAAGA        /<E/EA/<6/EEE/EE<<///E/AE<E//E//E////EEA/EEEE/EEEEE/AAAE6EEEAAE/A/EAEE//        NH:i:1  HI:i:1  AS:i:106        nM:i:10
+NS500451:154:HWKTMBGXX:1:11101:5260:1087:CATCGTTC:GATCCTAG      99      7       80039862        255     15M470N56M   =      80040235 445     AGGCCCGTGCTGGCCTAGCTCAGCCTGGCTTCCACGGAGGTGGAGGCCTGGAGTGCAGAGGCAGGCTGAGAG        /6<EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE        NH:i:1  HI:i:1  
+NS500451:154:HWKTMBGXX:1:11101:5260:1087:CATCGTTC:GATCCTAG      99      7       80039862        255     15M470N56M     =      80039862 -445    AAGATTTCCTCTTTCCTCCACATGGAGGGGTGGTAGGGGTGAGGCTCCTGGGACCCCACCTCAGGCAAACAG        EAEEAEEEEE<EEEEAEEEEEEEEE<EEEE6<EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE/        NH:i:1  HI:i:1  AS:i:139        nM:i:1
+NS500451:154:HWKTMBGXX:1:11101:2638:1088:ATCGTTGG:TGTGTGTG      99      2       76550448        255     1S71M   =      76550583 206     ACTCTGAGGTGGTTCCAGTAACATTCTTTAGTTCAAGCGTATATTCTCCCGTATCTCTTATAGTAGTTTCAC        /6AEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEE        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+
+Sample Output (cleaned):
+
+@SQ     SN:GL456359.1   LN:22974
+@SQ     SN:GL456396.1   LN:21240
+@SQ     SN:GL456368.1   LN:20208
+@SQ     SN:MU069434.1   LN:8412
+@SQ     SN:JH584295.1   LN:1976
+@PG     ID:STAR PN:STAR VN:2.7.9a       CL:STAR   --runMode alignReads      --runThreadN 40   --genomeDir ../QAA/Mus_musculus.GRCm39_ens104_STAR2.7.9a   --readFilesIn C1_paired_end_R1.fastq.gz   C1_paired_end_R2.fastq.gz      --readFilesCommand zcat      --outFileNamePrefix C1_PE_   --outSAMunmapped Within   KeepPairs      --outFilterMultimapNmax 1   --alignIntronMax 1000000   --alignMatesGapMax 1000000
+@CO     user command line: STAR --runMode alignReads --runThreadN 40 --genomeDir ../QAA/Mus_musculus.GRCm39_ens104_STAR2.7.9a --outFilterMultimapNmax 1 --outSAMunmapped Within KeepPairs --alignIntronMax 1000000 --alignMatesGapMax 1000000 --readFilesCommand zcat --readFilesIn C1_paired_end_R1.fastq.gz C1_paired_end_R2.fastq.gz --outFileNamePrefix C1_PE_
+NS500451:154:HWKTMBGXX:1:11101:18318:1085:AGCTACCA:GGCGTATT     163     MT      6161    255     1S71M   =       6516   426      AGTCTATTGGCTTTCTAGGCTTTATTGTATGAGCCCACCACATATTCACAGTAGGATTAGATGTAGACACAC        /EEEEEEEEEEEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEEEEEEEEEEEEEEEEAEEEEEEEEEEEEA        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+NS500451:154:HWKTMBGXX:1:11101:18318:1085:AGCTACCA:GGCGTATT     83      MT      6516    255     71M1S   =       6161   -426     TTCCCATTATTTTCAGGCTTCACCCTAGATGACACATGAGCAAAAGCCCACTTCGCCATCATATTCGTAGGT        AEEEEEEAEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEA6/        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+NS500451:154:HWKTMBGXX:1:11101:21515:1086:GAAGTGCA:ACACAGAG     99      12      21390945        255     1S71M   =      21391064 176     ATGGGGCTCACACCTGACCGGGCAGGTAGAAGCACAGTGCTCATGCGGTGGTGGGCAGCACTCAGGCACCAT        E66EEEEEEAEEEEEE/EEEEEEEEEEEE<EEEAEAEEEEEEEEEEEEEEEEEEEE/EEE/<E/EEE/6A//        NH:i:1  HI:i:1  AS:i:106        nM:i:10
+NS500451:154:HWKTMBGXX:1:11101:21515:1086:GAAGTGCA:ACACAGAG     147     12      21391064        255     14S57M1S       21390945 -176    TGATACCGCTTCATGAGTTTAGTAGACAGATTTGTATAAAGACTGCAGCCCCATGCTACAGTATGTCAAAGA        /<E/EA/<6/EEE/EE<<///E/AE<E//E//E////EEA/EEEE/EEEEE/AAAE6EEEAAE/A/EAEE//        NH:i:1  HI:i:1  AS:i:106        nM:i:10
+NS500451:154:HWKTMBGXX:1:11101:2638:1088:ATCGTTGG:TGTGTGTG      99      2       76550448        255     1S71M   =      76550583 206     ACTCTGAGGTGGTTCCAGTAACATTCTTTAGTTCAAGCGTATATTCTCCCGTATCTCTTATAGTAGTTTCAC        /6AEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEE        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+
+
+Sample Output (duplicates):
+NS500451:154:HWKTMBGXX:1:11101:5260:1087:CATCGTTC:GATCCTAG      99     7       80039862        255     15M470N56M     =      80039862 -445    AAGATTTCCTCTTTCCTCCACATGGAGGGGTGGTAGGGGTGAGGCTCCTGGGACCCCACCTCAGGCAAACAG        EAEEAEEEEE<EEEEAEEEEEEEEE<EEEE6<EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE/        NH:i:1  HI:i:1  AS:i:139        nM:i:1
