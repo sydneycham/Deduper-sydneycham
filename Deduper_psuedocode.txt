@@ -1,47 +1,53 @@
-The Problem:
+The Problem (description):
 PCR sometimes leads to unwanted duplication of sequences in sequencing data. We would like a more accurate representation of the sequences in our data since this woudl lead to rna-seq data wrongly attributing elevated expression in our final result. Our goal is to account for these duplicates to produce a more accurate analysis. 
 
 Psuedocode:
 Set up argparse 
+``
+initialize an empty dictionary for umis
+
+init duplicate_counter
 
 def pos_changer(line):
 '''
 calculates correct starting position based on reference and assigns this position to matched reads
-'''
-    grab CIGAR string col 6
-    parse through CIGAR string
-    look through CIGAR for I, S, H, P, if has one of those then:
-        calculate new starting position
-    return new starting position into CIGAR
-
-init UMI_dict
-
-init duplicate_counter
-
-def dup_detection(line):
-'''
-this function will parse through the sam file and determine whether the reads are duplicates or not and adding duplicates to output file
 '''
     grab chromosome col 3
     grab starting position col 4
     grab CIGAR string col 6
     grab bitflag to determine strandedness
 
-    check for duplicates by:
     check if umi in UMI_dict
         if in UMI_dict:
             store chromosome, starting position, CIGAR string, strandedness with that UMI
         if not in UMI_dict:
             add to UMI_dict as well as chromosome, starting position, CIGAR string, strandedness
-            add to duplicate_counter, and send them to pos_changer function
+            add to duplicate_counter, and change position by 
+                grab CIGAR string col 6
+                    parse through CIGAR string
+                    look through CIGAR for I, S, H, P, if has one of those then:
+                        calculate new starting position
     once position is corrected, output this new sam file line to output file for duplicates 
-    return line
+    return line containing corrected starting position
 
-    
+
+
+Sample Input for this function:
+
+NS500451:154:HWKTMBGXX:1:11101:5260:1087:CATCGTTC:GATCCTAG      99      7       80039862        255     15M470N56M   =      80040235 445     AGGCCCGTGCTGGCCTAGCTCAGCCTGGCTTCCACGGAGGTGGAGGCCTGGAGTGCAGAGGCAGGCTGAGAG        /6<EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE        NH:i:1  HI:i:1  
+NS500451:154:HWKTMBGXX:1:11101:5260:1087:CATCGTTC:GATCCTAG      99      7       80039862        255     15M470N56M     =      80039862 -445    AAGATTTCCTCTTTCCTCCACATGGAGGGGTGGTAGGGGTGAGGCTCCTGGGACCCCACCTCAGGCAAACAG        EAEEAEEEEE<EEEEAEEEEEEEEE<EEEE6<EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE/        NH:i:1  HI:i:1  AS:i:139        nM:i:1
+NS500451:154:HWKTMBGXX:1:11101:2638:1088:ATCGTTGG:TGTGTGTG      99      2       76550448        255     1S71M   =      76550583 206     ACTCTGAGGTGGTTCCAGTAACATTCTTTAGTTCAAGCGTATATTCTCCCGTATCTCTTATAGTAGTTTCAC        /6AEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEE        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+NS500451:154:HWKTMBGXX:1:11101:2638:1088:ATCGTTGG:TGTGTGTG      99      2       76550456        255     1S71M   =      76550583 206     ACTCTGAGGTGGTTCCAGTAACATTCTTTAGTTCAAGCGTATATTCTCCCGTATCTCTTATAGTAGTTTCAC        /6AEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEE        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+
+Sample Output for this function: (determines them both as duplicates but also changes starting position when it is necessary)
+NS500451:154:HWKTMBGXX:1:11101:5260:1087:CATCGTTC:GATCCTAG      99      7       80039862        255     15M470N56M   =      80040235 445     AGGCCCGTGCTGGCCTAGCTCAGCCTGGCTTCCACGGAGGTGGAGGCCTGGAGTGCAGAGGCAGGCTGAGAG        /6<EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE        NH:i:1  HI:i:1  
+NS500451:154:HWKTMBGXX:1:11101:2638:1088:ATCGTTGG:TGTGTGTG      99      2       76550448        255     1S71M   =      76550583 206     ACTCTGAGGTGGTTCCAGTAACATTCTTTAGTTCAAGCGTATATTCTCCCGTATCTCTTATAGTAGTTTCAC        /6AEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEE        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+
 
 Open sam file 
-    if line does not start with @ (so we're only grabbing the part of the sam file with the read):
-        dup_detection(line)
+
+    if line does not start with @ (so we're only grabbing the part of the sam file with the read) and is calculated as :
+        pos_changer(line)
 
 Sample Input file:
 @SQ     SN:GL456359.1   LN:22974
@@ -58,6 +64,7 @@ NS500451:154:HWKTMBGXX:1:11101:21515:1086:GAAGTGCA:ACACAGAG     147     12      
 NS500451:154:HWKTMBGXX:1:11101:5260:1087:CATCGTTC:GATCCTAG      99      7       80039862        255     15M470N56M   =      80040235 445     AGGCCCGTGCTGGCCTAGCTCAGCCTGGCTTCCACGGAGGTGGAGGCCTGGAGTGCAGAGGCAGGCTGAGAG        /6<EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE        NH:i:1  HI:i:1  
 NS500451:154:HWKTMBGXX:1:11101:5260:1087:CATCGTTC:GATCCTAG      99      7       80039862        255     15M470N56M     =      80039862 -445    AAGATTTCCTCTTTCCTCCACATGGAGGGGTGGTAGGGGTGAGGCTCCTGGGACCCCACCTCAGGCAAACAG        EAEEAEEEEE<EEEEAEEEEEEEEE<EEEE6<EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE/        NH:i:1  HI:i:1  AS:i:139        nM:i:1
 NS500451:154:HWKTMBGXX:1:11101:2638:1088:ATCGTTGG:TGTGTGTG      99      2       76550448        255     1S71M   =      76550583 206     ACTCTGAGGTGGTTCCAGTAACATTCTTTAGTTCAAGCGTATATTCTCCCGTATCTCTTATAGTAGTTTCAC        /6AEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEE        NH:i:1  HI:i:1  AS:i:140        nM:i:0
+NS500451:154:HWKTMBGXX:1:11101:2638:1088:ATCGTTGG:TGTGTGTG      99      2       76550456        255     1S71M   =      76550583 206     ACTCTGAGGTGGTTCCAGTAACATTCTTTAGTTCAAGCGTATATTCTCCCGTATCTCTTATAGTAGTTTCAC        /6AEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEE        NH:i:1  HI:i:1  AS:i:140        nM:i:0
 
 Sample Output (cleaned):
 
@@ -77,3 +84,4 @@ NS500451:154:HWKTMBGXX:1:11101:2638:1088:ATCGTTGG:TGTGTGTG      99      2       
 
 Sample Output (duplicates):
 NS500451:154:HWKTMBGXX:1:11101:5260:1087:CATCGTTC:GATCCTAG      99     7       80039862        255     15M470N56M     =      80039862 -445    AAGATTTCCTCTTTCCTCCACATGGAGGGGTGGTAGGGGTGAGGCTCCTGGGACCCCACCTCAGGCAAACAG        EAEEAEEEEE<EEEEAEEEEEEEEE<EEEE6<EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE/        NH:i:1  HI:i:1  AS:i:139        nM:i:1
+NS500451:154:HWKTMBGXX:1:11101:2638:1088:ATCGTTGG:TGTGTGTG      99      2       76550448        255     1S71M   =      76550583 206     ACTCTGAGGTGGTTCCAGTAACATTCTTTAGTTCAAGCGTATATTCTCCCGTATCTCTTATAGTAGTTTCAC        /6AEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEE        NH:i:1  HI:i:1  AS:i:140        nM:i:0
